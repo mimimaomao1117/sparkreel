@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# SparkReel runtime artifacts
+assets/output/**
+!assets/output/.gitkeep
+assets/uploads/
+# team console shared chat + agent audit log (transient)
+assets/console/
+# generated demo video (regenerate with `sparkreel make-sample`); text sidecars are kept
+*.mp4
+*.mov
+*.mkv
+*.wav
+*.aac
+runs/
+jobs/
+.sparkreel_cache/
+
+# Secrets / local config — NEVER commit credentials
+.env
+.env.*
+!.env.example
+config/local.yaml
+*.pem
+*.key
+*.ppk
+*.p12
+id_rsa
+id_ed25519
+*credentials*
+.aws/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# tooling scratch
+.playwright-cli/
+.claude/
+
+# downloaded ML models (YuNet face detector etc.)
+assets/models/

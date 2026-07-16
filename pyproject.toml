@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sparkreel"
+version = "0.1.0"
+description = "SparkReel（亮點秒剪）— AI live-stream highlight detection & auto short-clip generation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "SparkReel Team" }]
+dependencies = [
+    "numpy>=1.24",
+    "opencv-python>=4.8",
+    "pydantic>=2.5",
+    "PyYAML>=6.0",
+    "typer>=0.9",
+    "pillow>=10.0",
+    "boto3>=1.28",
+]
+
+[project.optional-dependencies]
+aws = ["boto3>=1.28"]
+dev = ["pytest>=7.0"]
+# Team-console dev agent (optional — console runs without these; needed only for the
+# in-console AI coding agent). Set ANTHROPIC_API_KEY and/or OPENAI_API_KEY to enable.
+agent = ["anthropic>=0.40", "openai>=1.30"]
+# Agent-native MCP server (`sparkreel mcp`) — drive clipping from Claude Code / Cursor
+mcp = ["mcp>=1.2"]
+
+[project.scripts]
+sparkreel = "sparkreel.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sparkreel = ["web/static/*", "../../config/*.yaml"]

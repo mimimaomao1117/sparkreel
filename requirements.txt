@@ -1,0 +1,16 @@
+# SparkReel core runtime dependencies
+numpy>=1.24
+opencv-python>=4.8
+pydantic>=2.5
+PyYAML>=6.0
+typer>=0.9
+pillow>=10.0
+
+# AWS adapters (optional — pipeline runs fully with local fallbacks without credentials)
+boto3>=1.28
+
+# Web/URL ingest (optional — only needed to `analyze <URL>` / `fetch` from a platform;
+# local-file analysis works without it). browser-act CLI (stealth 反爬 fallback) is a separate global tool.
+yt-dlp>=2024.1
+
+# System requirement (not pip-installable): ffmpeg / ffprobe must be on PATH.

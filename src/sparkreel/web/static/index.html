@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SparkReel 亮點秒剪 — AI 直播高光偵測</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23080b12'/%3E%3Cpath d='M35 8 16 35h13l-2 21 21-30H35z' fill='%236cf6d5'/%3E%3C/svg%3E">
+<style>
+  :root{
+    color-scheme:dark;--plane:#07090e;--surface:rgba(16,21,31,.86);--surface-2:rgba(23,30,43,.92);
+    --card:rgba(15,20,30,.78);--ink:#f4f7fb;--ink-2:#b9c4d4;--muted:#748096;
+    --grid:#202838;--axis:#354057;--brand:#6cf6d5;--brand-2:#bcb1ff;--series:#65aaff;--aqua:#30d6c8;
+    --good:#55e6a5;--warning:#ffcc66;--critical:#ff6f86;--border:rgba(166,188,220,.13);
+    --radius:18px;--shadow:0 24px 70px rgba(0,0,0,.38);
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;color:var(--ink);min-height:100vh;overflow-x:hidden;
+    background:radial-gradient(900px 540px at var(--mx,13%) -12%,rgba(104,74,211,.24),transparent 64%),
+      radial-gradient(800px 560px at 100% 28%,rgba(39,193,177,.15),transparent 68%),var(--plane)}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;
+    background-image:linear-gradient(rgba(140,170,210,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(140,170,210,.045) 1px,transparent 1px);
+    background-size:44px 44px;mask-image:linear-gradient(to bottom,black,transparent 92%)}
+  #ambient{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.48;mix-blend-mode:screen}
+  .cursor-glow{position:fixed;width:300px;height:300px;border-radius:50%;pointer-events:none;z-index:1;opacity:0;transform:translate(-50%,-50%);
+    background:radial-gradient(circle,rgba(108,246,213,.075),rgba(155,140,255,.03) 38%,transparent 70%);transition:opacity .25s}
+  body:hover .cursor-glow{opacity:1}
+  a{color:var(--brand);text-decoration:none}
+  .wrap{position:relative;z-index:2;max-width:1220px;margin:0 auto;padding:24px 22px 88px}
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;padding:10px 0}
+  .logo{display:flex;align-items:center;gap:12px}
+  .spark{position:relative;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,rgba(108,246,213,.2),rgba(155,140,255,.16));
+    border:1px solid rgba(108,246,213,.4);box-shadow:0 8px 28px rgba(69,216,197,.17)}
+  .spark::before{content:"";position:absolute;width:13px;height:25px;left:14px;top:7px;background:linear-gradient(180deg,var(--brand),#6e9dff);clip-path:polygon(55% 0,100% 0,67% 40%,100% 40%,20% 100%,38% 54%,0 54%)}
+  h1{font-size:20px;margin:0;letter-spacing:.2px}
+  h1 small{display:block;font-size:9px;color:var(--muted);font-weight:650;letter-spacing:2.1px;margin-top:3px}
+  .site-nav{display:flex;gap:4px;padding:4px;margin-left:12px;border-radius:12px;background:rgba(8,10,16,.56);border:1px solid var(--border)}
+  .site-nav a{font-size:10px;color:var(--muted);padding:6px 10px;border-radius:8px;letter-spacing:.04em;transition:.2s}
+  .site-nav a:hover{color:#fff;background:rgba(255,255,255,.05)}.site-nav a.on{color:#07110f;background:var(--brand);font-weight:800}
+  .pill{margin-left:auto;font-size:12px;color:var(--ink-2);background:var(--surface);border:1px solid var(--border);
+    padding:8px 12px;border-radius:999px;display:flex;gap:8px;align-items:center;backdrop-filter:blur(14px)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 12px currentColor;animation:statusPulse 2s ease-in-out infinite}
+  .dot.warn{background:var(--warning)}
+  @keyframes statusPulse{50%{opacity:.4;box-shadow:0 0 3px currentColor}}
+  .hero{margin:20px 0 28px}.hero-tag{color:var(--brand);font:750 10px ui-monospace,monospace;letter-spacing:2.4px;text-transform:uppercase}
+  .hero h2{font-size:clamp(30px,4vw,52px);line-height:1.05;letter-spacing:-.045em;margin:10px 0 10px;max-width:760px}
+  .hero h2 span{background:linear-gradient(90deg,var(--brand),#78b8ff,var(--brand-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 20px;line-height:1.7}
+  .card{position:relative;background:linear-gradient(145deg,rgba(20,26,38,.86),rgba(10,14,22,.8));border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .28s,border-color .28s,box-shadow .28s}
+  .card::after{content:"";position:absolute;left:7%;right:7%;top:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(108,246,213,.56),transparent);opacity:.6}
+  .control{overflow:hidden}.control::before{content:"";position:absolute;width:360px;height:360px;right:-160px;top:-220px;border-radius:50%;background:radial-gradient(circle,rgba(155,140,255,.14),transparent 68%);pointer-events:none}
+  .grid2{position:relative;display:grid;grid-template-columns:1.1fr .9fr;gap:22px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+  label.fld{display:block;font-size:10px;color:var(--muted);margin:0 0 8px;letter-spacing:1.2px;text-transform:uppercase;font-weight:750}
+  select,button,input{font-family:inherit}
+  select{width:100%;padding:12px 13px;background:rgba(5,8,13,.58);color:var(--ink);border:1px solid var(--border);border-radius:11px;font-size:14px;outline:none;transition:.2s}
+  select:focus{border-color:rgba(108,246,213,.46);box-shadow:0 0 0 3px rgba(108,246,213,.06)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .chk{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.025);border:1px solid var(--border);
+    padding:9px 12px;border-radius:10px;font-size:12px;cursor:pointer;user-select:none;transition:.2s}
+  .chk:hover{transform:translateY(-1px);border-color:rgba(108,246,213,.26)}.chk:has(input:checked){color:#ddfff7;background:rgba(108,246,213,.07);border-color:rgba(108,246,213,.28)}
+  .chk input{accent-color:var(--brand)}
+  button{transition:transform .2s,box-shadow .2s,border-color .2s,filter .2s}
+  .btn{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--brand),#78b8ff 64%,var(--brand-2));color:#07100f;font-weight:800;border:0;
+    padding:12px 20px;border-radius:11px;font-size:14px;cursor:pointer;box-shadow:0 8px 24px rgba(75,221,200,.18)}
+  .btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 13px 30px rgba(75,221,200,.24);filter:saturate(1.08)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:rgba(255,255,255,.035);color:var(--ink);border:1px solid var(--border);box-shadow:none;font-weight:650}
+  .up{position:relative;border:1px dashed rgba(108,246,213,.24);border-radius:11px;padding:13px;text-align:center;color:var(--muted);font-size:12px;cursor:pointer;transition:.25s;overflow:hidden}
+  .up::before{content:"";display:inline-block;width:8px;height:8px;margin-right:9px;border-left:1px solid var(--brand);border-top:1px solid var(--brand);transform:rotate(45deg) translateY(2px)}
+  .up:hover,.up.over{border-color:rgba(108,246,213,.6);color:var(--ink);background:rgba(108,246,213,.045);transform:translateY(-1px)}
+  /* progress */
+  #progress{margin-top:18px;display:none;animation:viewIn .4s both}
+  .bar{height:8px;background:rgba(255,255,255,.045);border-radius:999px;overflow:hidden}
+  .bar > i{position:relative;display:block;height:100%;width:0;overflow:hidden;border-radius:inherit;clip-path:inset(0 round 999px);background:linear-gradient(90deg,var(--brand),#78b8ff,var(--brand-2));transition:width .4s;box-shadow:0 0 18px rgba(108,246,213,.32)}
+  .bar > i::after{content:"";position:absolute;inset:0;width:38%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);animation:barShine 1.4s infinite}
+  @keyframes barShine{from{left:-50%}to{left:120%}}
+  .pstage{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);margin-top:9px}
+  /* metrics */
+  #results{display:none;margin-top:24px;animation:viewIn .55s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:820px){.tiles{grid-template-columns:repeat(2,1fr)}}
+  .tile{background:linear-gradient(145deg,rgba(20,26,38,.82),rgba(10,14,22,.76));border:1px solid var(--border);border-radius:14px;padding:15px;transition:.25s;animation:tileIn .45s both;animation-delay:calc(var(--i,0)*45ms)}
+  .tile:hover{transform:translateY(-3px);border-color:rgba(108,246,213,.24);box-shadow:0 16px 36px rgba(0,0,0,.2)}
+  @keyframes tileIn{from{opacity:0;transform:translateY(9px)}}
+  .tile .k{font-size:12px;color:var(--muted)}
+  .tile .v{font-size:26px;font-weight:750;margin-top:4px;letter-spacing:.5px}
+  .tile .v small{font-size:13px;color:var(--ink-2);font-weight:500}
+  .tile.good .v{color:var(--brand)}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border)}
+  .badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}.badge.pass{color:var(--good);background:rgba(85,230,165,.09)}
+  .badge.flagged,.badge.needs_review{color:var(--warning);background:rgba(255,204,102,.09)}
+  .badge.rejected{color:var(--critical);background:rgba(255,111,134,.1)}
+  .badge.muted,.badge.blurred{color:#9ec5ff;background:rgba(101,170,255,.1)}
+  h2.sec{font-size:12px;color:var(--ink-2);margin:26px 0 11px;letter-spacing:1.2px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  h2.sec::before{content:"";width:16px;height:1px;background:var(--brand);box-shadow:0 0 8px var(--brand)}
+  /* chart */
+  #chartWrap{position:relative}
+  canvas{width:100%;display:block}
+  #tip{position:absolute;pointer-events:none;background:rgba(7,9,14,.94);border:1px solid rgba(108,246,213,.28);border-radius:8px;
+    padding:7px 10px;font-size:12px;color:var(--ink);display:none;white-space:nowrap;transform:translate(-50%,-120%);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+  .lg{display:flex;align-items:center;gap:6px}
+  .lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+  /* clips */
+  .clips{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:820px){.clips{grid-template-columns:1fr}}
+  .clip{background:linear-gradient(155deg,rgba(21,27,39,.9),rgba(9,13,20,.88));border:1px solid var(--border);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;transition:.3s;animation:clipIn .5s both;animation-delay:calc(var(--i,0)*70ms)}
+  .clip:hover{transform:translateY(-5px);border-color:rgba(108,246,213,.22);box-shadow:0 22px 52px rgba(0,0,0,.32)}
+  @keyframes clipIn{from{opacity:0;transform:translateY(14px)}}
+  .clip video{width:100%;aspect-ratio:9/16;background:#000;object-fit:cover;transition:filter .3s}.clip:hover video{filter:brightness(1.05)}
+  .clip .body{padding:12px 13px 14px}
+  .clip .title{font-weight:700;font-size:15px;margin:0 0 3px}
+  .clip .hook{color:var(--brand-2);font-size:13px;margin:0 0 8px}
+  .tabs{display:flex;gap:6px;margin:2px 0 10px;flex-wrap:wrap}
+  .tab{font-size:11px;padding:5px 9px;border-radius:8px;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--ink-2);transition:.2s}
+  .tab:hover{transform:translateY(-1px);border-color:rgba(108,246,213,.3)}.tab.on{background:rgba(108,246,213,.12);color:var(--brand);font-weight:700;border-color:rgba(108,246,213,.3)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .chip{font-size:11px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--border);padding:3px 8px;border-radius:999px}
+  .meter{height:6px;background:var(--surface);border-radius:999px;overflow:hidden;margin:8px 0 4px}
+  .meter > i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--series),var(--brand-2));box-shadow:0 0 12px rgba(101,170,255,.3)}
+  .meta{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+  .dl{font-size:11px;padding:4px 9px;border:1px solid var(--border);border-radius:8px;transition:.2s}.dl:hover{transform:translateY(-1px);border-color:rgba(108,246,213,.34);color:#fff}
+  .warns{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6}
+  footer{margin-top:40px;color:var(--muted);font-size:11px;text-align:center;line-height:1.7}
+  .err{color:#ff9d9d;background:rgba(208,59,59,.14);border:1px solid rgba(208,59,59,.4);padding:10px 12px;border-radius:10px;margin-top:12px;display:none}
+  .fx-ripple{position:absolute!important;width:12px;height:12px;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.55);transform:translate(-50%,-50%) scale(0);animation:rippleOut .62s ease-out forwards}
+  @keyframes rippleOut{to{transform:translate(-50%,-50%) scale(20);opacity:0}}
+  :where(.btn,.up,.chk,.tab,.dl){position:relative;overflow:hidden}
+  .motion-card{transform-style:preserve-3d;will-change:transform}
+  ::selection{background:rgba(108,246,213,.24);color:#fff}::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:rgba(155,170,195,.18);border-radius:999px}
+  @media(max-width:640px){.wrap{padding:14px 12px 64px}.site-nav{order:3;margin-left:0;width:100%;justify-content:center}.site-nav a{flex:1;text-align:center}.pill{margin-left:auto}.hero{margin:16px 0 22px}.hero h2{font-size:34px}.card{padding:16px}.tiles{gap:8px}.tile .v{font-size:22px}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}#ambient,.cursor-glow{display:none}}
+</style>
+</head>
+<body>
+<canvas id="ambient" aria-hidden="true"></canvas>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">
+      <div class="spark" aria-hidden="true"></div>
+      <h1>SparkReel <small>亮點秒剪 · AI 直播高光偵測與自動剪輯</small></h1>
+    </div>
+    <nav class="site-nav" aria-label="站台導覽">
+      <a href="/studio">Studio</a>
+      <a class="on" href="/pro">Pro</a>
+      <a href="#" data-console-link>Console</a>
+    </nav>
+    <div class="pill"><span id="modeDot" class="dot"></span><span id="modeText">載入中…</span></div>
+  </header>
+  <div class="hero">
+    <div class="hero-tag">Multimodal Intelligence / Pro Workspace</div>
+    <h2>把直播訊號，轉成<span>可發布的高光</span></h2>
+    <p class="sub">匯入直播影片或示範素材，分析語音、彈幕與視覺訊號，再輸出適合 TikTok、Reels 與 Shorts 的精華短片。</p>
+  </div>
+
+  <!-- CONTROL -->
+  <div class="card control">
+    <div class="grid2">
+      <div>
+        <label class="fld">Step 01 / 選擇直播素材</label>
+        <select id="sampleSel"><option>載入中…</option></select>
+        <div style="height:10px"></div>
+        <div class="up" id="upBtn">或點此上傳影片檔（mp4/mov/mkv）<input id="upFile" type="file" accept="video/*" hidden></div>
+        <div id="upName" class="sub" style="margin:8px 0 0"></div>
+      </div>
+      <div>
+        <label class="fld">Step 02 / 輸出平台</label>
+        <div class="row" id="platforms">
+          <label class="chk"><input type="checkbox" value="tiktok" checked> TikTok</label>
+          <label class="chk"><input type="checkbox" value="reels" checked> IG Reels</label>
+          <label class="chk"><input type="checkbox" value="shorts" checked> YouTube Shorts</label>
+        </div>
+        <label class="fld" style="margin-top:14px">Step 03 / 輸出選項</label>
+        <label class="chk" style="display:inline-flex"><input id="montage" type="checkbox" checked> 產出精華合輯</label>
+        <div style="margin-top:16px" class="row">
+          <button class="btn" id="runBtn">開始分析</button>
+          <button class="btn ghost" id="genBtn">產生示範樣本</button>
+        </div>
+      </div>
+    </div>
+    <div id="err" class="err"></div>
+    <div id="progress">
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="pstage"><span id="pStage">—</span><span id="pMsg"></span></div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="tiles" id="tiles"></div>
+
+    <h2 class="sec">多模態高光分數曲線</h2>
+    <div class="card">
+      <div id="chartWrap"><canvas id="chart" height="220"></canvas><div id="tip"></div></div>
+      <div class="legend">
+        <span class="lg"><i style="background:var(--series)"></i>融合高光分數</span>
+        <span class="lg"><i style="background:var(--brand);opacity:.5"></i>偵測到的高光區段</span>
+        <span class="lg" id="thrLg"><i style="background:var(--muted)"></i>高光門檻</span>
+      </div>
+    </div>
+
+    <h2 class="sec">產出短片</h2>
+    <div class="clips" id="clips"></div>
+
+    <div id="montageBox" style="margin-top:18px;display:none">
+      <h2 class="sec">精華合輯</h2>
+      <div class="card" style="max-width:360px"><video id="montageVid" controls playsinline style="width:100%;aspect-ratio:9/16;border-radius:10px;background:#000"></video></div>
+    </div>
+
+    <div class="warns" id="warns"></div>
+  </div>
+
+  <footer>
+    SparkReel 亮點秒剪 · 本地 + AWS 雙模式（Bedrock / Rekognition / Transcribe / MediaConvert）·
+    <span id="footBackends"></span>
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const enc = p => '/media?path=' + encodeURIComponent(p);
+let SAMPLES = [], UPLOAD_PATH = null, STATUS = null;
+
+async function boot(){
+  document.querySelectorAll('[data-console-link]').forEach(a=>a.href=location.protocol+'//'+location.hostname+':9998');
+  STATUS = await (await fetch('/api/status')).json();
+  const cloud = STATUS.aws.credentials;
+  $('#modeDot').className = 'dot' + (cloud?'':' warn');
+  $('#modeText').textContent = cloud ? 'AWS 雲端模式' : '本地備援模式（無需憑證）';
+  $('#footBackends').textContent = Object.entries(STATUS.backends).map(([k,v])=>k+':'+v).join(' · ');
+  await loadSamples();
+}
+async function loadSamples(){
+  const d = await (await fetch('/api/samples')).json();
+  SAMPLES = d.samples || [];
+  const sel = $('#sampleSel');
+  sel.innerHTML = SAMPLES.length ? SAMPLES.map((s,i)=>`<option value="${i}">${s.name}${s.chat?' ＋彈幕':''}${s.subtitles?' ＋字幕':''}</option>`).join('')
+    : '<option value="-1">（尚無素材，請按「產生示範樣本」）</option>';
+}
+const upBtn=$('#upBtn');
+upBtn.onclick = ()=> $('#upFile').click();
+$('#upFile').onchange = e=>uploadFile(e.target.files[0]);
+['dragover','dragenter'].forEach(type=>upBtn.addEventListener(type,e=>{e.preventDefault();upBtn.classList.add('over')}));
+['dragleave','drop'].forEach(type=>upBtn.addEventListener(type,e=>{e.preventDefault();upBtn.classList.remove('over')}));
+upBtn.addEventListener('drop',e=>uploadFile(e.dataTransfer.files[0]));
+async function uploadFile(f){
+  if(!f) return;
+  $('#upName').textContent = '上傳中… ' + f.name;
+  try{
+    const r = await fetch('/api/upload',{method:'POST',headers:{'X-Filename':f.name},body:f});
+    const j = await r.json(); if(!r.ok||!j.path) throw new Error(j.error||'上傳失敗');
+    UPLOAD_PATH = j.path; $('#upName').textContent = '已上傳：' + f.name + '（分析將使用此檔）';
+  }catch(e){ $('#upName').textContent=''; showErr(e.message||'上傳失敗'); }
+}
+$('#genBtn').onclick = async ()=>{
+  $('#genBtn').disabled = true; $('#genBtn').textContent='產生中…';
+  try{ await fetch('/api/make-sample',{method:'POST'}); await loadSamples(); }
+  finally{ $('#genBtn').disabled=false; $('#genBtn').textContent='產生示範樣本'; }
+};
+function selectedPlatforms(){return [...document.querySelectorAll('#platforms input:checked')].map(x=>x.value);}
+
+$('#runBtn').onclick = async ()=>{
+  const plats = selectedPlatforms();
+  if(!plats.length){ return showErr('請至少選擇一個輸出平台。'); }
+  let video, chat=null, subtitles=null;
+  if(UPLOAD_PATH){ video = UPLOAD_PATH; }
+  else{
+    const s = SAMPLES[+$('#sampleSel').value];
+    if(!s){ return showErr('沒有可用素材，請先產生示範樣本或上傳影片。'); }
+    video=s.video; chat=s.chat; subtitles=s.subtitles;
+  }
+  showErr('');
+  setRunBusy(true); $('#results').style.display='none';
+  $('#progress').style.display='block'; setBar(0,'queued','排隊中…');
+  const r = await fetch('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({video,chat,subtitles,platforms:plats,montage:$('#montage').checked})});
+  const j = await r.json();
+  if(j.error){ setRunBusy(false); return showErr(j.error); }
+  poll(j.id);
+};
+function showErr(m){const e=$('#err');e.style.display=m?'block':'none';e.textContent=m;}
+function setRunBusy(on){$('#runBtn').disabled=on;$('#runBtn').textContent=on?'分析進行中':'開始分析';}
+const STAGE_LABEL={queued:'排隊',ingest:'讀取素材',signals:'解析多模態訊號',fusion:'融合高光分數',moderation:'內容安全檢查',editing:'生成短片',montage:'生成合輯',done:'完成'};
+function setBar(pct,stage,msg){$('#barFill').style.width=(pct*100)+'%';$('#pStage').textContent=STAGE_LABEL[stage]||stage;$('#pMsg').textContent=msg;}
+
+async function poll(id){
+  try{
+    const s = await (await fetch('/api/jobs/'+id)).json();
+    setBar(s.pct||0, s.stage||'', s.msg||'');
+    if(s.state==='done'){ setRunBusy(false); render(s); return; }
+    if(s.state==='error'){ setRunBusy(false); showErr('分析失敗：'+s.error); return; }
+    setTimeout(()=>poll(id), 500);
+  }catch(e){ setTimeout(()=>poll(id), 800); }
+}
+
+function tile(k,v,unit='',cls=''){return `<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}<small>${unit}</small></div></div>`;}
+
+function render(job){
+  const R = job.result, m = R.metrics;
+  $('#results').style.display='block';
+  const modColor = {pass:'pass',flagged:'flagged',needs_review:'needs_review',rejected:'rejected'}[R.moderation.status]||'pass';
+  $('#tiles').innerHTML =
+    tile('節省剪輯時間',(m.time_saved_ratio*100).toFixed(1),'%','good')+
+    tile('偵測高光', m.highlights_found,'個')+
+    tile('產出短片', m.clips_produced+'×'+(R.clips[0]?.variants.length||0),'平台')+
+    tile('平均品質分', m.avg_quality_score,'/100')+
+    tile('即時處理倍率', m.realtime_factor,'x')+
+    tile('自動化程度',(m.automation_degree*100).toFixed(0),'%')+
+    tile('壓縮比', m.compression_ratio,'x')+
+    `<div class="tile"><div class="k">內容審核</div><div class="v" style="font-size:18px;margin-top:8px"><span class="badge ${modColor}">${R.moderation.status}</span></div></div>`;
+  drawChart(R);
+  renderClips(R);
+  const mp = job.montage;
+  if(mp){ $('#montageBox').style.display='block'; $('#montageVid').src=enc(mp); } else $('#montageBox').style.display='none';
+  const w = (R.warnings||[]).filter(x=>!x.startsWith('montage:'));
+  $('#warns').innerHTML = w.length? '<b>備註／降級說明：</b><br>'+w.map(x=>'· '+x).join('<br>') : '';
+  $('#results').scrollIntoView({behavior:'smooth'});
+}
+
+function renderClips(R){
+  const box = $('#clips'); box.innerHTML='';
+  R.clips.forEach((c,cardIndex)=>{
+    if(!c.variants.length){
+      box.insertAdjacentHTML('beforeend',
+        `<div class="clip" style="--i:${cardIndex}"><div class="body"><p class="title">${c.title||'（已阻擋）'}</p>
+        <span class="badge ${c.moderation_status}">${c.moderation_status}</span>
+        <p class="sub" style="margin-top:8px">此高光因內容審核未通過，未產出短片。</p></div></div>`);
+      return;
+    }
+    const h = R.highlights[c.highlight_index];
+    const vid = document.createElement('div'); vid.className='clip'; vid.style.setProperty('--i',cardIndex);
+    const tabs = c.variants.map((v,i)=>`<span class="tab ${i===0?'on':''}" data-i="${i}">${v.platform_label}</span>`).join('');
+    const chips = (h.dominant_signals||[]).map(s=>`<span class="chip">${s}</span>`).join('');
+    const kws = (h.keywords||[]).slice(0,5).map(s=>`<span class="chip">#${s}</span>`).join('');
+    const v0 = c.variants[0];
+    vid.innerHTML =
+      `<video controls playsinline preload="metadata" poster="${v0.thumbnail?enc(v0.thumbnail):''}" src="${enc(v0.path)}"></video>
+       <div class="body">
+         <div class="tabs">${tabs}</div>
+         <p class="title">${c.title}</p><p class="hook">「${c.hook}」</p>
+         <div class="chips">${chips}</div>
+         <div class="meta"><span>片段 ${h.start.toFixed(1)}–${h.end.toFixed(1)}s</span><span class="badge ${c.moderation_status}">${c.moderation_status}</span></div>
+         <div class="meter"><i style="width:${c.quality_score}%"></i></div>
+         <div class="meta"><span>品質 ${c.quality_score}/100 · 分數 ${h.score}</span><a class="dl" id="dl" href="${enc(v0.path)}" download>下載</a></div>
+         <div class="chips" style="margin-top:8px">${kws}</div>
+       </div>`;
+    box.appendChild(vid);
+    const video = vid.querySelector('video'), dl = vid.querySelector('#dl');
+    vid.querySelectorAll('.tab').forEach(t=> t.onclick=()=>{
+      vid.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+      const v = c.variants[+t.dataset.i];
+      video.src=enc(v.path); if(v.thumbnail) video.poster=enc(v.thumbnail); dl.href=enc(v.path); video.load();
+    });
+  });
+}
+
+// ── score curve chart (single series + shaded highlight bands + threshold) ──
+let CHART=null;
+function drawChart(R){
+  const cv=$('#chart'), tip=$('#tip');
+  const W=cv.clientWidth, H=220, dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr; cv.height=H*dpr; const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
+  const pad={l:34,r:12,t:12,b:22}, iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+  const xs=R.score_times, ys=R.score_curve, n=xs.length, dur=xs[n-1]||1;
+  const X=t=>pad.l+ (t/dur)*iw, Y=v=>pad.t+(1-v)*ih;
+  ctx.clearRect(0,0,W,H);
+  // highlight bands
+  R.highlights.forEach(h=>{ ctx.fillStyle='rgba(108,246,213,0.10)'; ctx.fillRect(X(h.start),pad.t,X(h.end)-X(h.start),ih); });
+  // grid + y labels
+  ctx.strokeStyle='#202838'; ctx.fillStyle='#748096'; ctx.font='11px system-ui'; ctx.lineWidth=1;
+  [0,.25,.5,.75,1].forEach(v=>{const y=Y(v);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.fillText(v.toFixed(2),6,y+3);});
+  // x ticks
+  for(let t=0;t<=dur;t+=Math.max(5,Math.round(dur/8/5)*5)){ctx.fillText(t+'s',X(t)-6,H-6);}
+  // threshold line
+  const thr=R.highlight_threshold ?? 0.55;
+  ctx.strokeStyle='#58647a'; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(pad.l,Y(thr)); ctx.lineTo(W-pad.r,Y(thr)); ctx.stroke(); ctx.setLineDash([]);
+  // area
+  const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+ih); grad.addColorStop(0,'rgba(101,170,255,.34)'); grad.addColorStop(1,'rgba(48,214,200,0)');
+  ctx.beginPath(); ctx.moveTo(X(xs[0]),Y(ys[0]));
+  for(let i=1;i<n;i++)ctx.lineTo(X(xs[i]),Y(ys[i]));
+  ctx.lineTo(X(xs[n-1]),Y(0)); ctx.lineTo(X(xs[0]),Y(0)); ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+  // line
+  ctx.beginPath(); ctx.moveTo(X(xs[0]),Y(ys[0])); for(let i=1;i<n;i++)ctx.lineTo(X(xs[i]),Y(ys[i]));
+  ctx.strokeStyle='#65aaff'; ctx.lineWidth=2; ctx.stroke();
+  // peak dots
+  R.highlights.forEach(h=>{ctx.beginPath();ctx.arc(X(h.peak_t),Y(h.score),4,0,7);ctx.fillStyle='#6cf6d5';ctx.fill();
+    ctx.strokeStyle='#0f141e';ctx.lineWidth=2;ctx.stroke();});
+  CHART={X,Y,xs,ys,pad,iw,dur,W,H};
+  // hover
+  cv.onmousemove=e=>{
+    const r=cv.getBoundingClientRect(), mx=e.clientX-r.left;
+    const t=Math.max(0,Math.min(dur,(mx-pad.l)/iw*dur)); let idx=Math.round(t/dur*(n-1)); idx=Math.max(0,Math.min(n-1,idx));
+    tip.style.display='block'; tip.style.left=X(xs[idx])+'px'; tip.style.top=Y(ys[idx])+'px';
+    tip.innerHTML=`${xs[idx].toFixed(1)}s · 分數 <b>${ys[idx].toFixed(2)}</b>`;
+  };
+  cv.onmouseleave=()=>tip.style.display='none';
+}
+window.addEventListener('resize',()=>{ if(window._lastR) drawChart(window._lastR); });
+const _origRender=render; render=function(job){ window._lastR=job.result; _origRender(job); };
+
+function initAmbient(){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const canvas=$('#ambient'),ctx=canvas.getContext('2d'),glow=$('#cursorGlow');
+  let w=0,h=0,dpr=1,gx=innerWidth*.2,gy=80,tx=gx,ty=gy;
+  const points=Array.from({length:24},()=>({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*.000035,vy:(Math.random()-.5)*.000035,r:.5+Math.random()*1.1}));
+  function resize(){dpr=Math.min(devicePixelRatio||1,1.5);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+  addEventListener('resize',resize,{passive:true});
+  addEventListener('pointermove',e=>{tx=e.clientX;ty=e.clientY;document.body.style.setProperty('--mx',(tx/w*100).toFixed(1)+'%')},{passive:true});
+  function frame(){
+    ctx.clearRect(0,0,w,h);gx+=(tx-gx)*.12;gy+=(ty-gy)*.12;if(glow){glow.style.left=gx+'px';glow.style.top=gy+'px'}
+    points.forEach((p,i)=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>1)p.vx*=-1;if(p.y<0||p.y>1)p.vy*=-1;
+      const x=p.x*w,y=p.y*h;ctx.beginPath();ctx.fillStyle='rgba(130,231,225,.24)';ctx.arc(x,y,p.r,0,Math.PI*2);ctx.fill();
+      for(let j=i+1;j<points.length;j++){const q=points[j],dx=(p.x-q.x)*w,dy=(p.y-q.y)*h,d=Math.hypot(dx,dy);if(d<145){ctx.beginPath();ctx.strokeStyle=`rgba(116,154,210,${(1-d/145)*.055})`;ctx.moveTo(x,y);ctx.lineTo(q.x*w,q.y*h);ctx.stroke()}}
+    });requestAnimationFrame(frame);
+  }
+  resize();requestAnimationFrame(frame);
+}
+function initInteractions(){
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.addEventListener('pointerdown',e=>{const el=e.target.closest('.btn,.up,.chk,.tab,.dl');if(!el||el.disabled||reduced)return;
+    const b=el.getBoundingClientRect(),r=document.createElement('i');r.className='fx-ripple';r.style.left=e.clientX-b.left+'px';r.style.top=e.clientY-b.top+'px';el.appendChild(r);r.addEventListener('animationend',()=>r.remove(),{once:true});
+  });
+  const canTilt=!reduced&&matchMedia('(hover:hover) and (pointer:fine)').matches;
+  const bind=root=>{const cards=[];if(root.nodeType===1&&root.matches?.('.control,.tile,.clip'))cards.push(root);root.querySelectorAll?.('.control,.tile,.clip').forEach(x=>cards.push(x));
+    cards.forEach(el=>{if(el.dataset.motionBound)return;el.dataset.motionBound='1';el.classList.add('motion-card');if(!canTilt)return;
+      el.addEventListener('pointermove',e=>{const r=el.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;el.style.transform=`perspective(1100px) rotateX(${-y*2}deg) rotateY(${x*2.5}deg) translateY(-2px)`});
+      el.addEventListener('pointerleave',()=>el.style.transform='');
+    });
+  };
+  bind(document);new MutationObserver(list=>list.forEach(m=>m.addedNodes.forEach(bind))).observe(document.body,{childList:true,subtree:true});
+}
+initAmbient();initInteractions();
+boot();
+</script>
+</body>
+</html>

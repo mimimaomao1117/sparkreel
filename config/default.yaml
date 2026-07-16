@@ -1,0 +1,91 @@
+# SparkReel 預設設定檔
+# 每個能力（capability）都可獨立在 local（本地備援）與 aws（雲端服務）之間切換。
+# 若選 aws 但憑證或服務不可用，系統會自動降級回 local，並在報告中標註。
+
+project: sparkreel
+version: "0.1.0"
+
+# ── 執行後端選擇 ─────────────────────────────────────────────
+# 一鍵雲端：設 SPARKREEL_CLOUD=1 會把下面全部切成 aws（EC2 上用 instance role）。
+# 個別覆寫：SPARKREEL_BACKEND_<CAP>=aws（優先於 SPARKREEL_CLOUD）。
+backends:
+  transcribe: local        # local(能量/節奏代理) | aws → Amazon Transcribe
+  chat_sentiment: local    # local(詞典) | aws → Amazon Bedrock
+  visual: local            # local(OpenCV) | aws → Amazon Rekognition
+  moderation: local        # local(規則) | aws → Rekognition + Bedrock Guardrails
+  narrative: local         # local(樣板) | aws → Amazon Bedrock
+
+# ── AWS 服務設定（僅在 backend=aws 時使用）───────────────────
+aws:
+  region: us-east-1                                       # 覆寫：SPARKREEL_AWS_REGION / AWS_REGION
+  s3_bucket: sparkreel-media                              # 覆寫：SPARKREEL_S3_BUCKET
+  # Bedrock 模型 id；新款 Claude 需用「跨區推論設定檔」id（例：us.anthropic.claude-...）。
+  # 覆寫：SPARKREEL_BEDROCK_MODEL（narrative / chat_sentiment / 主控台 Agent 共用）。
+  bedrock_model: anthropic.claude-3-5-sonnet-20241022-v2:0
+  transcribe_language: zh-TW
+  rekognition_min_confidence: 80
+  mediaconvert_endpoint: ""     # 留空則用 ffmpeg 本地轉檔
+
+# ── 分析網格 ─────────────────────────────────────────────────
+analysis:
+  grid_hz: 2.0             # 時間軸取樣密度（2 Hz → 每 0.5 秒一格）
+  visual_sample_fps: 4.0   # 視覺訊號抽幀率
+  smoothing_sec: 2.0       # 分數平滑視窗（秒）
+
+# ── 多模態融合權重（系統會自動正規化）──────────────────────
+fusion:
+  weights:
+    audio_excitement: 1.0   # 音量/能量爆點（歡呼、爆音）
+    audio_emotion: 0.8      # 語音情緒強度代理
+    speech_keyword: 0.9     # 逐字稿關鍵語（「太扯了」「這波」…）
+    speech_sentiment: 0.7   # 逐字稿情感極性
+    chat_volume: 1.2        # 彈幕/聊天洗版爆量
+    chat_sentiment: 1.0     # 彈幕情感強度
+    visual_motion: 0.9      # 畫面動態量
+    visual_scene: 0.6       # 場景切換
+    visual_face: 0.5        # 人臉/特寫出現
+    visual_expression: 1.1  # 微表情變化（臉部逐幀變化）
+    visual_emotion: 1.2     # 臉部情緒強度（FER+ 真模型:笑/驚/怒/懼）
+  peak:
+    min_score: 0.55         # 高光門檻（0~1 正規化分數）
+    min_gap_sec: 8.0        # 兩個高光之間的最小間隔
+    max_highlights: 8       # 單一素材最多取幾個高光
+
+# ── 自動剪輯 ─────────────────────────────────────────────────
+editing:
+  pad_before_sec: 1.5       # 高光前保留鋪陳
+  pad_after_sec: 1.2        # 高光後保留反應
+  min_clip_sec: 6.0
+  max_clip_sec: 45.0
+  target_clip_sec: 22.0
+  crossfade_sec: 0.25
+  narrative: true           # 讓短片鋪陳→爆點→餘韻（爆點落在 70–80% 處），營造期待感
+
+# ── 平台風格預設 ─────────────────────────────────────────────
+platforms:
+  tiktok:
+    label: "TikTok"
+    aspect: "9:16"
+    max_sec: 60
+    caption_style: bold_center
+    hook_style: punchy
+  reels:
+    label: "IG Reels"
+    aspect: "9:16"
+    max_sec: 90
+    caption_style: bold_center
+    hook_style: aesthetic
+  shorts:
+    label: "YouTube Shorts"
+    aspect: "9:16"
+    max_sec: 60
+    caption_style: bold_top
+    hook_style: informative
+
+# ── 內容審核 / 合規 ──────────────────────────────────────────
+moderation:
+  block_labels: [explicit_nudity, graphic_violence, hate_symbol, self_harm]
+  blur_labels: [weapon, alcohol, tobacco, gambling]
+  flag_labels: [profanity, sensitive_political, personal_info]
+  audio_profanity_action: mute   # mute | bleep | flag
+  require_human_review_above: 0.85
