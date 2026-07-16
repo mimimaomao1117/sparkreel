@@ -18,8 +18,8 @@
 剪成帶字幕、帶開場鉤子、符合各社群平台規格的直式短片——**把 1 小時的人工剪輯壓縮到數十秒的自動化。**
 
 <div align="center">
-<img src="docs/img/ui-results.png" width="760" alt="SparkReel Web UI 分析結果">
-<br><em>Web Live Demo：多模態高光分數曲線 + 自動產出的三平台短片 + 內容審核報告</em>
+<img src="docs/img/home.png" width="820" alt="SparkReel Studio 首頁 · AI Highlight Studio">
+<br><em>打開後的首頁 · AI Highlight Studio：上傳素材、和 AI 對焦創意，一鍵生成多平台精華短片</em>
 </div>
 
 ---
@@ -287,12 +287,6 @@ flowchart TB
 - **文字**：彈幕仇恨言論、個資（電話 / Email / 身分證）→ `標記 / 送審`
 
 超過信心門檻者一律路由至人工複審（`needs_review`），系統**不會靜默發布**邊界內容。
-
-<div align="center">
-<img src="docs/img/clip-caption.png" width="220" alt="燒錄字幕">
-<img src="docs/img/clip-hook.png" width="220" alt="開場鉤子">
-<br><em>自動產出的 9:16 短片：燒錄 CJK 字幕（下）與限時開場鉤子（上）</em>
-</div>
 
 ---
 
